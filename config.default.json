@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "actionFusion": {
+    "enabled": true,
+    "triggerPatterns": ["test", "build", "lint", "check", "run", "pytest", "cargo test", "npm test", "go test"],
+    "maxFusionDepth": 3
+  },
+  "observationPack": {
+    "enabled": true,
+    "tokenThreshold": 2000,
+    "maxHandleSize": 200,
+    "archiveDir": "~/.agent/token-saver/archive/"
+  },
+  "evidencePreservingReducer": {
+    "enabled": false,
+    "reducerModel": "deepseek-v4-flash",
+    "tokenThreshold": 3000,
+    "preserveEvidence": true
+  },
+  "onlineContextCompact": {
+    "enabled": true,
+    "contextUsageThreshold": 0.6,
+    "cacheWriteReadRatio": 12.5,
+    "minSavingsRatio": 1.5
+  },
+  "auditInterval": 10
+}
