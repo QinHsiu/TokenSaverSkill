@@ -24,7 +24,25 @@ def _env(home):
     return e
 
 
+def _events_path(ts_home, session_id):
+    return (
+        ts_home
+        / ".agent"
+        / "token-saver"
+        / "archive"
+        / session_id
+        / "events.jsonl"
+    )
+
+
+def _read_event(ts_home, session_id, index=0):
+    lines = _events_path(ts_home, session_id).read_text(encoding="utf-8").strip().splitlines()
+    return json.loads(lines[index])
+
+
 def test_archive_success(ts_home, ts_cwd):
+    import _common as c
+
     # file large enough: >= 2000 tokens under heuristic (~1540 words)
     words = " ".join(["word"] * 1600)
     f = ts_cwd / "big.txt"
@@ -34,6 +52,17 @@ def test_archive_success(ts_home, ts_cwd):
     data = json.loads(r.stdout)
     assert set(data) >= {"handle", "approx_tokens", "archived_path", "summary"}
     assert Path(data["archived_path"]).is_file()
+    assert c.HANDLE_RE.fullmatch(data["handle"])
+    assert "(共" in data["summary"] and "行)" in data["summary"]
+
+    sid = (ts_cwd / ".token-saver-session").read_text(encoding="utf-8").strip()
+    ev = _read_event(ts_home, sid)
+    assert ev["mechanism"] == "observation_pack"
+    payload = ev["payload"]
+    assert payload["action"] == "archive"
+    assert payload["handle"] == data["handle"]
+    assert payload["approx_tokens"] == data["approx_tokens"]
+    assert payload["source_path"] == str(f.resolve())
 
 
 def test_archive_below_threshold(ts_home, ts_cwd):
