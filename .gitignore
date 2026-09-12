@@ -19,6 +19,7 @@ docs/*
 .pr-body-*.md
 
 # Runtime session artifacts
+.token-saver-session
 data/sessions/*
 !data/sessions/.gitkeep
 

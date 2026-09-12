@@ -1,6 +1,6 @@
 # Token Saver Skill (B1)
 
-Cross-Harness skill that audibly reduces Agent token waste without modifying harness source. Savings map to `events.jsonl` and are reproducible via `audit.py`.
+Cross-Harness skill that auditably reduces Agent token waste without modifying harness source. Savings map to `events.jsonl` and are reproducible via `audit.py`.
 
 ## Install
 
