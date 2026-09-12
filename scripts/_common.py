@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import shutil
+import tempfile
+import uuid
 from pathlib import Path
+
+_SYSTEM_DIR_NAMES = frozenset({"tmp", "var", "usr", "windows", "system32"})
+_TEMP_DIR = Path(tempfile.gettempdir()).resolve()
 
 EXIT_OK = 0
 EXIT_DECLINE = 1
@@ -47,3 +53,31 @@ def session_dir(session_id: str) -> Path:
     path = runtime_root() / "archive" / session_id
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def is_system_dir(path: Path) -> bool:
+    resolved = path.resolve()
+    if resolved == _TEMP_DIR:
+        return True
+    return path.name.casefold() in _SYSTEM_DIR_NAMES
+
+
+def resolve_session_id(cwd: Path | None = None) -> str:
+    env = os.environ.get("TOKEN_SAVER_SESSION_ID")
+    if env:
+        return env.strip()
+    original = (cwd or Path.cwd()).resolve()
+    cur = original
+    for _ in range(8):
+        candidate = cur / ".token-saver-session"
+        if candidate.is_file():
+            return candidate.read_text(encoding="utf-8").strip()
+        parent = cur.parent
+        if parent == cur:
+            break
+        if is_system_dir(parent):
+            break
+        cur = parent
+    sid = str(uuid.uuid4())
+    (original / ".token-saver-session").write_text(sid + "\n", encoding="utf-8")
+    return sid
