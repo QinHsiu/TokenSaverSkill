@@ -5,9 +5,12 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
+import secrets
 import shutil
 import tempfile
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 _SYSTEM_DIR_NAMES = frozenset({"tmp", "var", "usr", "windows", "system32"})
@@ -19,6 +22,9 @@ EXIT_USAGE = 2
 EXIT_IO = 3
 EXIT_CALL = 4
 EXIT_STATE = 5
+
+MECHANISMS = frozenset({"action_fusion", "observation_pack", "online_compact"})
+HANDLE_RE = re.compile(r"^\d{8}T\d{6}-[0-9a-f]{8}$")
 
 
 def skill_root() -> Path:
@@ -81,3 +87,53 @@ def resolve_session_id(cwd: Path | None = None) -> str:
     sid = str(uuid.uuid4())
     (original / ".token-saver-session").write_text(sid + "\n", encoding="utf-8")
     return sid
+
+
+def new_handle() -> str:
+    return datetime.now().strftime("%Y%m%dT%H%M%S") + "-" + secrets.token_hex(4)
+
+
+def _lock_file(f) -> None:
+    if os.name == "nt":
+        import msvcrt
+
+        # msvcrt locks from the current file position; seek to start and lock 1 byte.
+        f.seek(0)
+        msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+    else:
+        import fcntl
+
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+
+
+def _unlock_file(f) -> None:
+    if os.name == "nt":
+        import msvcrt
+
+        f.seek(0)
+        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+
+        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+
+def append_event(session_id: str, mechanism: str, payload: dict) -> None:
+    if mechanism not in MECHANISMS:
+        raise ValueError(f"unknown mechanism: {mechanism!r}")
+    ensure_runtime()
+    path = session_dir(session_id) / "events.jsonl"
+    event = {
+        "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "session_id": session_id,
+        "mechanism": mechanism,
+        "payload": payload,
+    }
+    line = json.dumps(event, ensure_ascii=False) + "\n"
+    with open(path, "a+", encoding="utf-8") as f:
+        _lock_file(f)
+        try:
+            f.write(line)
+            f.flush()
+        finally:
+            _unlock_file(f)
