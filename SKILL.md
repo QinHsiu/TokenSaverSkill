@@ -27,7 +27,7 @@ stdout 仅输出一行 `session_id`（纯文本）。后续调用可传 `--sessi
 | Read/输出 ≥ `observationPack.tokenThreshold`（默认 2000）或同一文件读取 ≥2 次 | `python3 scripts/observation_pack.py archive <file_path>`；上下文只保留 handle + 脚本返回的 `summary` |
 | 需要原文精确引用 | `python3 scripts/observation_pack.py recall <handle> [--max-tokens N]`；用毕即弃，长期上下文只留 handle |
 | Edit/Write 后同轮验证（test/build/lint/check/run/pytest 等） | 同轮合并执行；随后 `python3 scripts/session_recorder.py record action_fusion --payload '{"fused_tools":[...]}'` |
-| 上下文使用率 >60% **且** 刚完成完整 Edit→Test 循环 | 可 `record online_compact`（可选 `approx_tokens_saved`） |
+| 上下文使用率 >60% **且** 刚完成完整 Edit→Test 循环 | 可 `python3 scripts/session_recorder.py record online_compact [--payload '{"approx_tokens_saved": N}']` |
 | 会话结束或用户询问 | `python3 scripts/audit.py --session <id> [--format text\|json]` |
 | 不确定有哪些归档 | `python3 scripts/observation_pack.py list [--session ID]` |
 
@@ -47,7 +47,7 @@ stdout 仅输出一行 `session_id`（纯文本）。后续调用可传 `--sessi
 
 **archive：** stdout JSON 含 `handle`、`approx_tokens`、`archived_path`、`summary`。**必须使用脚本生成的 `summary`**，禁止自行长篇复述文件内容。
 
-**recall：** `--max-tokens` 默认 500，是**上限而非目标**——能少取就少取；仅当需要精确原文时使用；优先多次小 recall，避免一次大 pull；用毕从上下文移除正文，保留 handle。
+**recall：** B1 按空白分词切片（`text.split()`），`--max-tokens` / `--offset-tokens` 是**词下标**（word-index），不是 LLM tokenizer 精确 token 数，也与 archive 的 `approx_tokens` 无关。`--max-tokens` 默认 500，是**上限而非目标**——能少取就少取；仅当需要精确原文时使用；优先多次小 recall，避免一次大 pull；用毕从上下文移除正文，保留 handle。
 
 ### audit.py
 
@@ -73,6 +73,7 @@ Shell 信号（130/143）不在脚本契约内。
 - `observationPack.enabled: false` → 不调用 archive/recall
 - `actionFusion.enabled: false` → 不 record action_fusion
 - `onlineContextCompact.enabled: false` → 不 record online_compact
+- `auditInterval`：默认 10（**建议** Agent 每约 N 条机制事件后跑一次 `audit.py`；B1 脚本不强制执行）
 - **`evidencePreservingReducer`：B1 完全忽略**（即使 `enabled: true` 也不执行、不调用 reducer 模型）
 
 ## 脚本缺失
