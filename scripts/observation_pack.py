@@ -108,18 +108,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
 
 def _slice_by_tokens(text: str, offset_tokens: int, max_tokens: int) -> str:
     words = text.split()
-    if not words:
-        return ""
-
-    start = 0
-    while start < len(words) and c.approx_tokens(" ".join(words[: start + 1])) <= offset_tokens:
-        start += 1
-
-    end = start
-    while end < len(words) and c.approx_tokens(" ".join(words[start : end + 1])) <= max_tokens:
-        end += 1
-
-    return " ".join(words[start:end])
+    return " ".join(words[offset_tokens : offset_tokens + max_tokens])
 
 
 def _archive_event_meta(session_id: str) -> dict[str, dict]:

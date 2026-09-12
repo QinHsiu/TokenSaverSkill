@@ -102,12 +102,28 @@ def _archive_large(ts_home, ts_cwd, name="big.txt"):
 
 
 def test_recall_respects_max_tokens(ts_home, ts_cwd):
-    import _common as c
-
     handle = _archive_large(ts_home, ts_cwd)
     r = run_op(["recall", handle, "--max-tokens", "50"], _env(ts_home), ts_cwd)
     assert r.returncode == 0, r.stderr
-    assert c.approx_tokens(r.stdout) <= 50 + 2
+    assert len(r.stdout.split()) == 50
+
+
+def test_recall_offset_tokens(ts_home, ts_cwd):
+    prefix = " ".join([f"skip{i}" for i in range(10)])
+    body = " ".join(["keep"] * 1600)
+    f = ts_cwd / "offset.txt"
+    f.write_text(prefix + " " + body, encoding="utf-8")
+    r = run_op(["archive", str(f)], _env(ts_home), ts_cwd)
+    assert r.returncode == 0, r.stderr
+    handle = json.loads(r.stdout)["handle"]
+    r = run_op(
+        ["recall", handle, "--offset-tokens", "10", "--max-tokens", "5"],
+        _env(ts_home),
+        ts_cwd,
+    )
+    assert r.returncode == 0, r.stderr
+    words = r.stdout.split()
+    assert words == ["keep"] * 5
 
 
 def test_recall_unknown_handle(ts_home, ts_cwd):
