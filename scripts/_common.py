@@ -9,6 +9,7 @@ import re
 import secrets
 import shutil
 import tempfile
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +26,8 @@ EXIT_STATE = 5
 
 MECHANISMS = frozenset({"action_fusion", "observation_pack", "online_compact"})
 HANDLE_RE = re.compile(r"^\d{8}T\d{6}-[0-9a-f]{8}$")
+_WIN_LOCK_MAX_RETRIES = 50
+_WIN_LOCK_BASE_DELAY = 0.001
 
 
 def skill_root() -> Path:
@@ -98,8 +101,16 @@ def _lock_file(f) -> None:
         import msvcrt
 
         # msvcrt locks from the current file position; seek to start and lock 1 byte.
+        # Under thread contention LK_LOCK can raise errno 36; retry with backoff.
         f.seek(0)
-        msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+        for attempt in range(_WIN_LOCK_MAX_RETRIES):
+            try:
+                msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+                return
+            except OSError as exc:
+                if exc.errno != 36 or attempt == _WIN_LOCK_MAX_RETRIES - 1:
+                    raise
+                time.sleep(_WIN_LOCK_BASE_DELAY * (2 ** min(attempt, 10)))
     else:
         import fcntl
 
