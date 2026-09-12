@@ -1,0 +1,39 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+node_modules/
+package-lock.json
+
+# Local design notes and agent workspace (not for public repo)
+# Keep superpowers specs/plans tracked for this skill repo.
+docs/*
+!docs/superpowers/
+!docs/superpowers/**
+.superpowers/
+.pr-body-*.md
+
+# Runtime session artifacts
+data/sessions/*
+!data/sessions/.gitkeep
+
+# Competition local evidence / demo artifacts (keep on disk, not in git)
+# Ignore contents, but allow Demo mp4 uploads for GitHub / GOAI.
+runtime_evidence/*
+!runtime_evidence/demo.mp4
+!runtime_evidence/demo_720p.mp4
+!runtime_evidence/demo_1080p.mp4
+!runtime_evidence/demo_preview.gif
+
+# External curriculum dumps (Edition 0826)
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/README.md
+
+# Git worktrees
+.worktrees/
