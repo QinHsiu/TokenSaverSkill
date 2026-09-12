@@ -106,14 +106,89 @@ def cmd_archive(args: argparse.Namespace) -> int:
     return c.EXIT_OK
 
 
+def _slice_by_tokens(text: str, offset_tokens: int, max_tokens: int) -> str:
+    words = text.split()
+    if not words:
+        return ""
+
+    start = 0
+    while start < len(words) and c.approx_tokens(" ".join(words[: start + 1])) <= offset_tokens:
+        start += 1
+
+    end = start
+    while end < len(words) and c.approx_tokens(" ".join(words[start : end + 1])) <= max_tokens:
+        end += 1
+
+    return " ".join(words[start:end])
+
+
+def _archive_event_meta(session_id: str) -> dict[str, dict]:
+    """Latest observation_pack archive event per handle."""
+    events_path = c.session_dir(session_id) / "events.jsonl"
+    if not events_path.is_file():
+        return {}
+    meta: dict[str, dict] = {}
+    for line in events_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("mechanism") != "observation_pack":
+            continue
+        payload = event.get("payload") or {}
+        if payload.get("action") != "archive":
+            continue
+        handle = payload.get("handle")
+        if not handle:
+            continue
+        meta[handle] = {
+            "source_path": payload.get("source_path", ""),
+            "approx_tokens": payload.get("approx_tokens", 0),
+        }
+    return meta
+
+
 def cmd_recall(args: argparse.Namespace) -> int:
-    print("recall not implemented", file=sys.stderr)
-    return c.EXIT_USAGE
+    sid = args.session or c.resolve_session_id()
+    archived_path = c.session_dir(sid) / f"{args.handle}.txt"
+    if not archived_path.is_file():
+        return c.EXIT_STATE
+
+    try:
+        text = archived_path.read_text(encoding="utf-8")
+    except OSError as e:
+        print(str(e), file=sys.stderr)
+        return c.EXIT_IO
+
+    slice_text = _slice_by_tokens(text, args.offset_tokens, args.max_tokens)
+    print(slice_text, end="")
+    return c.EXIT_OK
 
 
 def cmd_list(args: argparse.Namespace) -> int:
-    print("list not implemented", file=sys.stderr)
-    return c.EXIT_USAGE
+    sid = args.session or c.resolve_session_id()
+    session_path = c.session_dir(sid)
+    meta = _archive_event_meta(sid)
+
+    rows = []
+    for path in session_path.glob("*.txt"):
+        handle = path.stem
+        if not c.HANDLE_RE.fullmatch(handle):
+            continue
+        info = meta.get(handle, {})
+        rows.append(
+            {
+                "handle": handle,
+                "approx_tokens": info.get("approx_tokens", c.approx_tokens(path.read_text(encoding="utf-8"))),
+                "source_path": info.get("source_path", ""),
+            }
+        )
+
+    rows.sort(key=lambda row: row["handle"])
+    print(json.dumps(rows, ensure_ascii=False))
+    return c.EXIT_OK
 
 
 def main(argv: list[str] | None = None) -> int:
