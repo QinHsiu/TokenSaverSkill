@@ -96,14 +96,31 @@ def test_audit_json_format(ts_home, ts_cwd):
     r = run_audit(["--session", sid, "--format", "json"], _env(ts_home), ts_cwd)
     assert r.returncode == 0, r.stderr
     data = json.loads(r.stdout)
+    assert set(data) == {
+        "session_id",
+        "action_fusion",
+        "observation_pack",
+        "online_compact",
+        "total_tokens_saved",
+        "cost_usd_estimate",
+    }
+    assert set(data["online_compact"]) == {
+        "count",
+        "estimated_count",
+        "unestimated_count",
+        "tokens_saved",
+    }
     assert data["session_id"] == sid
     assert data["action_fusion"] == {"count": 1, "tokens_saved": 700}
     assert data["observation_pack"] == {"archive_count": 1, "tokens_saved": 170}
-    assert data["online_compact"]["estimated_count"] == 1
-    assert data["online_compact"]["unestimated_count"] == 0
-    assert data["online_compact"]["tokens_saved"] == 50
+    assert data["online_compact"] == {
+        "count": 1,
+        "estimated_count": 1,
+        "unestimated_count": 0,
+        "tokens_saved": 50,
+    }
     assert data["total_tokens_saved"] == 920
-    assert "cost_usd_estimate" in data
+    assert isinstance(data["cost_usd_estimate"], float)
 
 
 def test_audit_missing_session_dir(ts_home, ts_cwd):
